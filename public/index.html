@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qbil Hub - B2B Document Exchange</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>Qbil Hub</h1>
+            </div>
+            <div class="nav-user">
+                <span id="user-name">Admin User</span>
+                <button id="logout-btn" class="btn-secondary">Uitloggen</button>
+            </div>
+        </nav>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="nav-menu">
+                <li><a href="#" class="nav-link active" data-page="dashboard">Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-page="connections">Verbindingen</a></li>
+                <li><a href="#" class="nav-link" data-page="documents">Documenten</a></li>
+                <li><a href="#" class="nav-link" data-page="processing">Verwerking</a></li>
+                <li><a href="#" class="nav-link" data-page="learning">Machine Learning</a></li>
+                <li><a href="#" class="nav-link" data-page="mappings">Mappings</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="page-header">
+                    <h2>Dashboard</h2>
+                </div>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <h3>Actieve Verbindingen</h3>
+                        <span class="stat-number" id="active-connections">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Documenten Verstuurd</h3>
+                        <span class="stat-number" id="sent-documents">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Documenten Ontvangen</h3>
+                        <span class="stat-number" id="received-documents">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Wachtrij Verwerking</h3>
+                        <span class="stat-number" id="processing-queue">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connections Management Page -->
+            <div id="connections-page" class="page">
+                <div class="page-header">
+                    <h2>Trading Partner Verbindingen</h2>
+                    <button id="search-companies-btn" class="btn-primary">Zoek Bedrijven</button>
+                </div>
+
+                <!-- Connection Requests -->
+                <div class="section">
+                    <h3>Afwachtende Verzoeken</h3>
+                    <div id="pending-requests" class="requests-list">
+                        <p>Geen afwachtende verzoeken</p>
+                    </div>
+                </div>
+
+                <!-- Active Connections -->
+                <div class="section">
+                    <h3>Actieve Verbindingen</h3>
+                    <div id="active-connections-list" class="connections-list">
+                        <p>Geen actieve verbindingen</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Page -->
+            <div id="documents-page" class="page">
+                <div class="page-header">
+                    <h2>Documenten</h2>
+                    <div class="page-actions">
+                        <button id="upload-document-btn" class="btn-primary">Document Versturen</button>
+                    </div>
+                </div>
+
+                <div class="documents-container">
+                    <!-- Sent Documents -->
+                    <div class="section">
+                        <h3>Verstuurde Documenten</h3>
+                        <div id="sent-documents-list" class="documents-list">
+                            <p>Geen verstuurde documenten</p>
+                        </div>
+                    </div>
+
+                    <!-- Received Documents -->
+                    <div class="section">
+                        <h3>Ontvangen Documenten</h3>
+                        <div id="received-documents-list" class="documents-list">
+                            <p>Geen ontvangen documenten</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Page -->
+            <div id="processing-page" class="page">
+                <div class="page-header">
+                    <h2>Document Verwerking</h2>
+                </div>
+
+                <div class="processing-queue">
+                    <h3>Verwerkingswachtrij</h3>
+                    <div id="processing-queue-list" class="queue-list">
+                        <p>Geen documenten om te verwerken</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Learning Page -->
+            <div id="learning-page" class="page">
+                <div class="page-header">
+                    <h2>Machine Learning</h2>
+                    <button id="train-models-btn" class="btn-primary">Modellen Trainen</button>
+                </div>
+
+                <div class="learning-stats">
+                    <div id="learning-statistics">
+                        <p>Geen leerstatistieken beschikbaar</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mappings Page -->
+            <div id="mappings-page" class="page">
+                <div class="page-header">
+                    <h2>Product Mappings</h2>
+                    <button id="create-mapping-btn" class="btn-primary">Nieuwe Mapping</button>
+                </div>
+
+                <div id="mappings-list" class="mappings-container">
+                    <p>Geen mappings beschikbaar</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="company-search-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Bedrijf Zoeken</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="company-search-input" placeholder="Zoek op naam of business ID..." class="search-input">
+                <div id="search-results" class="search-results">
+                    <p>Voer een zoekterm in...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-search-btn" class="btn-secondary">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Viewer Modal -->
+    <div id="document-viewer-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="document-viewer-title">Document Viewer</h3>
+                <div class="modal-actions">
+                    <button id="download-document-btn" class="btn-secondary">Downloaden</button>
+                    <button id="acknowledge-document-btn" class="btn-primary">Bevestigen</button>
+                    <span class="modal-close">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="document-info">
+                    <div class="info-row">
+                        <span class="label">Type:</span>
+                        <span id="document-type"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Van:</span>
+                        <span id="document-sender"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Ontvangen:</span>
+                        <span id="document-date"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Bestandsgrootte:</span>
+                        <span id="document-size"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Prioriteit:</span>
+                        <span id="document-priority"></span>
+                    </div>
+                </div>
+
+                <div class="document-content">
+                    <div class="content-tabs">
+                        <button class="tab-btn active" data-tab="details">Details</button>
+                        <button class="tab-btn" data-tab="content">Inhoud</button>
+                        <button class="tab-btn" data-tab="recipients">Ontvangers</button>
+                    </div>
+
+                    <div class="tab-content active" id="details-tab">
+                        <div id="document-details"></div>
+                    </div>
+
+                    <div class="tab-content" id="content-tab">
+                        <div class="extracted-content">
+                            <h4>Geëxtraheerde Gegevens</h4>
+                            <div id="extracted-fields"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="recipients-tab">
+                        <div id="document-recipients"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-document-btn" class="btn-secondary">Sluiten</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Processing Modal -->
+    <div id="document-processing-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="processing-title">Document Verwerken</h3>
+                <div class="modal-actions">
+                    <button id="save-mappings-btn" class="btn-primary">Opslaan</button>
+                    <button id="apply-mappings-btn" class="btn-success">Toepassen & Records Maken</button>
+                    <span class="modal-close">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="processing-info">
+                    <div class="info-row">
+                        <span class="label">Document:</span>
+                        <span id="processing-document-name"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Van:</span>
+                        <span id="processing-sender"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Type:</span>
+                        <span id="processing-type"></span>
+                    </div>
+                </div>
+
+                <div class="processing-content">
+                    <div class="content-tabs">
+                        <button class="tab-btn active" data-tab="fields">Velden</button>
+                        <button class="tab-btn" data-tab="mappings">Mappings</button>
+                        <button class="tab-btn" data-tab="preview">Preview</button>
+                    </div>
+
+                    <div class="tab-content active" id="fields-tab">
+                        <div class="field-mapping-list">
+                            <h4>Veld Mapping</h4>
+                            <div id="field-mappings"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="mappings-tab">
+                        <div class="mapping-suggestions">
+                            <h4>ML Suggesties</h4>
+                            <div id="mapping-suggestions"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="preview-tab">
+                        <div class="processing-preview">
+                            <h4>Verwerkingsresultaat</h4>
+                            <div id="processing-preview-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-processing-btn" class="btn-secondary">Annuleren</button>
+                <button id="save-draft-btn" class="btn-primary">Concept Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
