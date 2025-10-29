@@ -31,72 +31,70 @@ beforeAll(async () => {
     }
   }
   
-  // Now require database module (after env vars are set)
-  const { execAsync, query } = require('../src/utils/database');
+  // Clear require cache to force reload of database module
+  delete require.cache[require.resolve('../src/utils/database')];
+  delete require.cache[require.resolve('../src/utils/logger')];
+  
+  // Now require database module (after env vars are set and cache cleared)
+  const { execAsync } = require('../src/utils/database');
+  
+  // Wait a moment for database file to be created
+  await new Promise(resolve => setTimeout(resolve, isCI ? 1000 : 100));
   
   // Create test database schema
   const schemaPath = path.join(__dirname, '../src/scripts/schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
   
-  try {
-    // Execute entire schema at once (SQLite supports this)
-    await execAsync(schema);
-  } catch (error) {
-    // If that fails, try statement by statement
-    const statements = schema
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && /CREATE|INSERT|ALTER/i.test(stmt));
-      
-    for (const statement of statements) {
-      try {
-        await execAsync(statement + ';');
-      } catch (err) {
-        // Ignore errors for existing objects
-        if (!err.message.includes('already exists') && 
-            !err.message.includes('UNIQUE constraint')) {
-          console.warn('Schema statement failed:', err.message);
-        }
+  // Split schema into statements, excluding seed data (INSERT statements)
+  const statements = schema
+    .split(';')
+    .map(stmt => stmt.trim())
+    .filter(stmt => stmt.length > 0 && /CREATE/i.test(stmt)); // Only CREATE statements, no INSERT
+    
+  for (const statement of statements) {
+    try {
+      await execAsync(statement + ';');
+    } catch (err) {
+      // Ignore errors for existing objects
+      if (!err.message.includes('already exists')) {
+        console.warn('Schema statement failed:', err.message);
       }
     }
   }
-
-  // Remove seed data that may interfere with tests
-  const seedBusinessIds = ['TCA001', 'TCB002', 'TCC003'];
-  await query(
-    `DELETE FROM users WHERE company_id IN (
-       SELECT id FROM companies WHERE business_id IN (?, ?, ?)
-     )`, seedBusinessIds
-  );
-  await query(
-    `DELETE FROM companies WHERE business_id IN (?, ?, ?)`,
-    seedBusinessIds
-  );
+  
+  // Wait for schema to be fully applied
+  await new Promise(resolve => setTimeout(resolve, isCI ? 1000 : 100));
 }, 30000); // Increase timeout for slow systems
 
 afterAll(async () => {
-  // Close database connection
-  const { close } = require('../src/utils/database');
-  await close();
-  
-  // Wait a bit for the connection to fully close
-  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
-  
-  // Clean up test database
-  if (fs.existsSync(testDbPath)) {
-    try {
-      fs.unlinkSync(testDbPath);
-    } catch (err) {
-      if (!isCI) {
-        console.warn('Could not delete test database:', err.message);
+  try {
+    // Close database connection
+    const { close } = require('../src/utils/database');
+    await close();
+    
+    // Wait a bit for the connection to fully close
+    await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
+    
+    // Clean up test database
+    if (fs.existsSync(testDbPath)) {
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (err) {
+        if (!isCI) {
+          console.warn('Could not delete test database:', err.message);
+        }
       }
     }
+  } catch (error) {
+    if (!isCI) {
+      console.warn('Error in afterAll cleanup:', error.message);
+    }
   }
-}, 10000);
+}, 15000);
 
 // Helper function to create test user
 global.createTestUser = async (userData = {}) => {
-  const { query } = require('../src/utils/database');
+  const { runAsync, query } = require('../src/utils/database');
   const bcrypt = require('bcryptjs');
   
   const defaultUser = {
@@ -111,20 +109,25 @@ global.createTestUser = async (userData = {}) => {
   
   const password_hash = await bcrypt.hash(defaultUser.password, 10);
   
-  const result = await query(
+  await runAsync(
     `INSERT INTO users (company_id, email, password_hash, first_name, last_name, is_admin)
-     VALUES (?, ?, ?, ?, ?, ?)
-     RETURNING id, email, first_name, last_name, is_admin, company_id`,
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [defaultUser.company_id, defaultUser.email, password_hash, 
      defaultUser.first_name, defaultUser.last_name, defaultUser.is_admin ? 1 : 0]
   );
   
-  return result.rows[0];
+  // Fetch the created user using email (which is unique)
+  const user = await query(
+    `SELECT id, email, first_name, last_name, is_admin, company_id FROM users WHERE email = ?`,
+    [defaultUser.email]
+  );
+  
+  return user.rows[0];
 };
 
 // Helper function to create test company
 global.createTestCompany = async (companyData = {}) => {
-  const { query } = require('../src/utils/database');
+  const { runAsync, query } = require('../src/utils/database');
   
   const defaultCompany = {
     name: 'Test Company',
@@ -133,14 +136,19 @@ global.createTestCompany = async (companyData = {}) => {
     ...companyData
   };
   
-  const result = await query(
+  await runAsync(
     `INSERT INTO companies (name, business_id, email_domain)
-     VALUES (?, ?, ?)
-     RETURNING id, name, business_id, email_domain`,
+     VALUES (?, ?, ?)`,
     [defaultCompany.name, defaultCompany.business_id, defaultCompany.email_domain]
   );
   
-  return result.rows[0];
+  // Fetch the created company using business_id (which is unique)
+  const company = await query(
+    `SELECT id, name, business_id, email_domain FROM companies WHERE business_id = ?`,
+    [defaultCompany.business_id]
+  );
+  
+  return company.rows[0];
 };
 
 
