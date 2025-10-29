@@ -27,7 +27,12 @@ jobs:
       run: npm ci
     
     - name: Run linter (if configured)
-      run: npm run lint || echo "No linter configured"
+      run: |
+        if grep -q "\"lint\":" package.json; then
+          npm run lint
+        else
+          echo "No linter configured, skipping..."
+        fi
       continue-on-error: true
     
     - name: Run tests

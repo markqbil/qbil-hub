@@ -7,18 +7,31 @@ class AuthManager {
 
     async checkAuthStatus() {
         const token = localStorage.getItem('access_token');
-        if (token) {
-            try {
-                const user = await api.getCurrentUser();
-                this.setAuthenticatedUser(user.user);
-                return true;
-            } catch (error) {
-                console.error('Token validation failed:', error);
-                this.logout();
-                return false;
+        
+        // If no token and not on login/auth pages, redirect to login
+        const currentPath = window.location.pathname;
+        const isAuthPage = currentPath.includes('login') || 
+                          currentPath.includes('reset-password') || 
+                          currentPath.includes('forgot-password');
+        
+        if (!token) {
+            if (!isAuthPage) {
+                console.log('No authentication token found, redirecting to login...');
+                window.location.href = '/login.html';
             }
+            return false;
         }
-        return false;
+        
+        // Validate token
+        try {
+            const user = await api.getCurrentUser();
+            this.setAuthenticatedUser(user.user);
+            return true;
+        } catch (error) {
+            console.error('Token validation failed:', error);
+            this.logout();
+            return false;
+        }
     }
 
     async login(email, password) {
@@ -151,6 +164,7 @@ setInterval(async () => {
         }
     }
 }, 60000); // Check every minute
+
 
 
 

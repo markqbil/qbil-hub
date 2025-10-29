@@ -37,73 +37,39 @@ Een moderne B2B document exchange hub waarmee bedrijven veilig documenten kunnen
 
 ## 🔧 Installatie
 
-### 1. Clone het project
+> **⚠️ BELANGRIJK**: Voor een complete, stap-voor-stap installatie guide, zie **[SETUP.md](SETUP.md)**
+
+### Quick Start (Ervaren Developers)
 
 ```bash
+# 1. Clone het project
 git clone <repository-url>
 cd qbil-hub
-```
 
-### 2. Installeer dependencies
-
-```bash
+# 2. Installeer dependencies
 npm install
-```
 
-### 3. Configureer environment variabelen
+# 3. Maak .env bestand (zie SETUP.md voor complete configuratie)
+# Kopieer de environment variabelen uit SETUP.md
 
-Maak een `.env` bestand in de root directory:
-
-```env
-# Server
-PORT=3000
-NODE_ENV=development
-
-# CORS (comma-gescheiden lijst)
-CORS_ORIGIN=http://localhost:3000
-
-# JWT
-JWT_SECRET=change-me-in-production-use-strong-random-string
-JWT_EXPIRES_IN=24h
-
-# Database
-DB_PATH=./qbil_hub.db
-
-# Uploads
-UPLOAD_DIR=uploads
-MAX_FILE_SIZE=10485760
-
-# Logging
-LOG_LEVEL=info
-LOGS_DIR=logs
-
-# Cleanup
-DOCUMENT_RETENTION_DAYS=90
-AUDIT_LOG_RETENTION_DAYS=180
-TIMEZONE=Europe/Amsterdam
-```
-
-### 4. Database setup
-
-```bash
-# Voer database migratie uit
+# 4. Database setup
 npm run migrate
-
-# Seed demo data (optioneel)
 npm run seed
-```
 
-### 5. Start de applicatie
-
-```bash
-# Development mode met auto-reload
+# 5. Start de applicatie
 npm run dev
-
-# Production mode
-npm start
 ```
 
-De applicatie is nu beschikbaar op `http://localhost:3000`
+De applicatie is nu beschikbaar op `http://localhost:3000/login.html`
+
+### 🚨 Veel voorkomende problemen?
+
+Als je problemen ondervindt:
+- **"Ik zie alleen een statische pagina"** → Lees [SETUP.md](SETUP.md)
+- **"Authentication werkt niet"** → Controleer of je `npm run seed` hebt uitgevoerd
+- **"Database errors"** → Lees de troubleshooting sectie in [SETUP.md](SETUP.md)
+
+📖 **Voor gedetailleerde installatie-instructies en troubleshooting, zie [SETUP.md](SETUP.md)**
 
 ## 🔑 Demo Credentials
 
