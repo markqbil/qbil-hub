@@ -1,4 +1,3 @@
-const { execAsync, close } = require('../src/utils/database');
 const fs = require('fs');
 const path = require('path');
 
@@ -6,7 +5,7 @@ const path = require('path');
 const testDbPath = './test_qbil_hub.db';
 
 beforeAll(async () => {
-  // Set test environment
+  // Set test environment BEFORE requiring database module
   process.env.NODE_ENV = 'test';
   process.env.DB_PATH = testDbPath;
   
@@ -16,8 +15,21 @@ beforeAll(async () => {
   
   // Clean up any existing test database
   if (fs.existsSync(testDbPath)) {
-    fs.unlinkSync(testDbPath);
+    try {
+      fs.unlinkSync(testDbPath);
+    } catch (err) {
+      // If file is locked, wait a bit and try again
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        fs.unlinkSync(testDbPath);
+      } catch (err2) {
+        console.warn('Could not delete test database, continuing anyway:', err2.message);
+      }
+    }
   }
+  
+  // Now require database module (after env vars are set)
+  const { execAsync } = require('../src/utils/database');
   
   // Create test database schema
   const schemaPath = path.join(__dirname, '../src/scripts/schema.sql');
@@ -49,11 +61,19 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Close database connection
+  const { close } = require('../src/utils/database');
   await close();
+  
+  // Wait a bit for the connection to fully close
+  await new Promise(resolve => setTimeout(resolve, 500));
   
   // Clean up test database
   if (fs.existsSync(testDbPath)) {
-    fs.unlinkSync(testDbPath);
+    try {
+      fs.unlinkSync(testDbPath);
+    } catch (err) {
+      console.warn('Could not delete test database:', err.message);
+    }
   }
 }, 10000);
 

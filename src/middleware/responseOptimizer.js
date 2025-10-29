@@ -7,8 +7,8 @@ const etag = (req, res, next) => {
     const originalSend = res.send;
 
     res.send = function(data) {
-        // Only generate ETags for successful GET requests with JSON data
-        if (req.method === 'GET' && res.statusCode >= 200 && res.statusCode < 300) {
+        // Only generate ETags for successful GET requests with JSON data if headers not sent
+        if (!res.headersSent && req.method === 'GET' && res.statusCode >= 200 && res.statusCode < 300) {
             if (typeof data === 'object' || typeof data === 'string') {
                 const content = typeof data === 'object' ? JSON.stringify(data) : data;
                 const hash = crypto.createHash('md5').update(content).digest('hex');
@@ -87,10 +87,16 @@ const addPaginationMetadata = (res, data, total, limit, offset) => {
 const responseTime = (req, res, next) => {
     const start = Date.now();
     
-    res.on('finish', () => {
+    // Override res.send to set header before sending
+    const originalSend = res.send;
+    res.send = function(data) {
         const duration = Date.now() - start;
-        res.setHeader('X-Response-Time', `${duration}ms`);
-    });
+        // Only set header if not already set and headers not sent
+        if (!res.headersSent) {
+            res.setHeader('X-Response-Time', `${duration}ms`);
+        }
+        return originalSend.call(this, data);
+    };
     
     next();
 };

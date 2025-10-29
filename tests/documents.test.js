@@ -11,60 +11,71 @@ describe('Documents Endpoints', () => {
   let testFilePath;
 
   beforeEach(async () => {
-    // Create test companies
-    company1 = await createTestCompany({
-      name: 'Sender Company',
-      business_id: 'SENDER123',
-      email_domain: 'sender.com'
-    });
+    try {
+      // Create test companies
+      company1 = await createTestCompany({
+        name: 'Sender Company',
+        business_id: 'SENDER123',
+        email_domain: 'sender.com'
+      });
 
-    company2 = await createTestCompany({
-      name: 'Receiver Company',
-      business_id: 'RECEIVER123',
-      email_domain: 'receiver.com'
-    });
+      company2 = await createTestCompany({
+        name: 'Receiver Company',
+        business_id: 'RECEIVER123',
+        email_domain: 'receiver.com'
+      });
 
-    // Create admin users
-    adminUser1 = await createTestUser({
-      email: 'admin1@sender.com',
-      company_id: company1.id,
-      is_admin: true
-    });
+      // Create admin users
+      adminUser1 = await createTestUser({
+        email: 'admin1@sender.com',
+        company_id: company1.id,
+        is_admin: true
+      });
 
-    adminUser2 = await createTestUser({
-      email: 'admin2@receiver.com',
-      company_id: company2.id,
-      is_admin: true
-    });
+      adminUser2 = await createTestUser({
+        email: 'admin2@receiver.com',
+        company_id: company2.id,
+        is_admin: true
+      });
 
-    // Create approved connection
-    const connectionResult = await query(
-      'INSERT INTO connections (initiator_company_id, target_company_id, initiated_by, status, approved_by, approved_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id',
-      [company1.id, company2.id, adminUser1.id, 'approved', adminUser2.id]
-    );
-    connectionId = connectionResult.rows[0].id;
+      // Create approved connection
+      const connectionResult = await query(
+        'INSERT INTO connections (initiator_company_id, target_company_id, initiated_by, status, approved_by, approved_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id',
+        [company1.id, company2.id, adminUser1.id, 'approved', adminUser2.id]
+      );
+      connectionId = connectionResult.rows[0].id;
 
-    // Create test file
-    testFilePath = path.join(__dirname, 'test-document.txt');
-    fs.writeFileSync(testFilePath, 'This is a test document content');
+      // Create test file
+      testFilePath = path.join(__dirname, 'test-document.txt');
+      fs.writeFileSync(testFilePath, 'This is a test document content');
+    } catch (error) {
+      console.error('Error in beforeEach:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    // Clean up test data
-    await query('DELETE FROM document_content WHERE document_id IN (SELECT id FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?))', 
-      [company1.id, company2.id, company1.id, company2.id]);
-    await query('DELETE FROM document_recipients WHERE document_id IN (SELECT id FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?))', 
-      [company1.id, company2.id, company1.id, company2.id]);
-    await query('DELETE FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?)', 
-      [company1.id, company2.id, company1.id, company2.id]);
-    await query('DELETE FROM connections WHERE initiator_company_id IN (?, ?) OR target_company_id IN (?, ?)', 
-      [company1.id, company2.id, company1.id, company2.id]);
-    await query('DELETE FROM users WHERE company_id IN (?, ?)', [company1.id, company2.id]);
-    await query('DELETE FROM companies WHERE id IN (?, ?)', [company1.id, company2.id]);
+    try {
+      // Clean up test data only if companies were created
+      if (company1 && company1.id && company2 && company2.id) {
+        await query('DELETE FROM document_content WHERE document_id IN (SELECT id FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?))', 
+          [company1.id, company2.id, company1.id, company2.id]);
+        await query('DELETE FROM document_recipients WHERE document_id IN (SELECT id FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?))', 
+          [company1.id, company2.id, company1.id, company2.id]);
+        await query('DELETE FROM documents WHERE sender_company_id IN (?, ?) OR recipient_company_id IN (?, ?)', 
+          [company1.id, company2.id, company1.id, company2.id]);
+        await query('DELETE FROM connections WHERE initiator_company_id IN (?, ?) OR target_company_id IN (?, ?)', 
+          [company1.id, company2.id, company1.id, company2.id]);
+        await query('DELETE FROM users WHERE company_id IN (?, ?)', [company1.id, company2.id]);
+        await query('DELETE FROM companies WHERE id IN (?, ?)', [company1.id, company2.id]);
+      }
 
-    // Clean up test file
-    if (fs.existsSync(testFilePath)) {
-      fs.unlinkSync(testFilePath);
+      // Clean up test file
+      if (testFilePath && fs.existsSync(testFilePath)) {
+        fs.unlinkSync(testFilePath);
+      }
+    } catch (error) {
+      console.error('Error in afterEach:', error);
     }
   });
 

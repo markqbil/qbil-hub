@@ -3,6 +3,7 @@ const Company = require('../models/Company');
 const JWTUtils = require('../utils/jwt');
 const AuditLogger = require('../utils/auditLogger');
 const emailService = require('../services/emailService');
+const logger = require('../utils/logger');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { query } = require('../utils/database');

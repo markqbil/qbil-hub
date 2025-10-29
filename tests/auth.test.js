@@ -7,25 +7,36 @@ describe('Auth Endpoints', () => {
   let testUser;
 
   beforeEach(async () => {
-    // Create test company
-    testCompany = await createTestCompany({
-      name: 'Test Company',
-      business_id: 'TEST123',
-      email_domain: 'test.com'
-    });
+    try {
+      // Create test company
+      testCompany = await createTestCompany({
+        name: 'Test Company',
+        business_id: 'TEST123',
+        email_domain: 'test.com'
+      });
 
-    // Create test user
-    testUser = await createTestUser({
-      email: 'test@example.com',
-      company_id: testCompany.id,
-      is_admin: true
-    });
+      // Create test user
+      testUser = await createTestUser({
+        email: 'test@example.com',
+        company_id: testCompany.id,
+        is_admin: true
+      });
+    } catch (error) {
+      console.error('Error in beforeEach:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    // Clean up test data
-    await query('DELETE FROM users WHERE company_id = ?', [testCompany.id]);
-    await query('DELETE FROM companies WHERE id = ?', [testCompany.id]);
+    try {
+      // Clean up test data only if testCompany was created
+      if (testCompany && testCompany.id) {
+        await query('DELETE FROM users WHERE company_id = ?', [testCompany.id]);
+        await query('DELETE FROM companies WHERE id = ?', [testCompany.id]);
+      }
+    } catch (error) {
+      console.error('Error in afterEach:', error);
+    }
   });
 
   describe('POST /api/auth/login', () => {

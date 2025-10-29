@@ -7,45 +7,56 @@ describe('Connections Endpoints', () => {
   let adminUser1, adminUser2;
 
   beforeEach(async () => {
-    // Create test companies
-    company1 = await createTestCompany({
-      name: 'Company 1',
-      business_id: 'COMP1',
-      email_domain: 'comp1.com'
-    });
+    try {
+      // Create test companies
+      company1 = await createTestCompany({
+        name: 'Company 1',
+        business_id: 'COMP1',
+        email_domain: 'comp1.com'
+      });
 
-    company2 = await createTestCompany({
-      name: 'Company 2',
-      business_id: 'COMP2',
-      email_domain: 'comp2.com'
-    });
+      company2 = await createTestCompany({
+        name: 'Company 2',
+        business_id: 'COMP2',
+        email_domain: 'comp2.com'
+      });
 
-    company3 = await createTestCompany({
-      name: 'Company 3',
-      business_id: 'COMP3',
-      email_domain: 'comp3.com'
-    });
+      company3 = await createTestCompany({
+        name: 'Company 3',
+        business_id: 'COMP3',
+        email_domain: 'comp3.com'
+      });
 
-    // Create admin users
-    adminUser1 = await createTestUser({
-      email: 'admin1@comp1.com',
-      company_id: company1.id,
-      is_admin: true
-    });
+      // Create admin users
+      adminUser1 = await createTestUser({
+        email: 'admin1@comp1.com',
+        company_id: company1.id,
+        is_admin: true
+      });
 
-    adminUser2 = await createTestUser({
-      email: 'admin2@comp2.com',
-      company_id: company2.id,
-      is_admin: true
-    });
+      adminUser2 = await createTestUser({
+        email: 'admin2@comp2.com',
+        company_id: company2.id,
+        is_admin: true
+      });
+    } catch (error) {
+      console.error('Error in beforeEach:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    // Clean up test data
-    await query('DELETE FROM connections WHERE initiator_company_id IN (?, ?, ?) OR target_company_id IN (?, ?, ?)', 
-      [company1.id, company2.id, company3.id, company1.id, company2.id, company3.id]);
-    await query('DELETE FROM users WHERE company_id IN (?, ?, ?)', [company1.id, company2.id, company3.id]);
-    await query('DELETE FROM companies WHERE id IN (?, ?, ?)', [company1.id, company2.id, company3.id]);
+    try {
+      // Clean up test data only if companies were created
+      if (company1 && company1.id && company2 && company2.id && company3 && company3.id) {
+        await query('DELETE FROM connections WHERE initiator_company_id IN (?, ?, ?) OR target_company_id IN (?, ?, ?)', 
+          [company1.id, company2.id, company3.id, company1.id, company2.id, company3.id]);
+        await query('DELETE FROM users WHERE company_id IN (?, ?, ?)', [company1.id, company2.id, company3.id]);
+        await query('DELETE FROM companies WHERE id IN (?, ?, ?)', [company1.id, company2.id, company3.id]);
+      }
+    } catch (error) {
+      console.error('Error in afterEach:', error);
+    }
   });
 
   describe('GET /api/connections/search-companies', () => {
