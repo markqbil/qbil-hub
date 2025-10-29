@@ -8,7 +8,8 @@ class Cache {
     constructor() {
         this.cache = new Map();
         this.ttls = new Map();
-        this.enabled = process.env.CACHE_ENABLED !== 'false'; // Default enabled
+        const isTestEnv = process.env.NODE_ENV === 'test';
+        this.enabled = !isTestEnv && process.env.CACHE_ENABLED !== 'false'; // Disable in test env unless explicitly enabled
         this.defaultTTL = parseInt(process.env.CACHE_DEFAULT_TTL) || 300000; // 5 minuten
         
         // Cleanup expired entries elke minuut

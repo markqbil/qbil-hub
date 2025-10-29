@@ -5,23 +5,25 @@ const logger = require('../utils/logger');
 const userLimitStore = new Map();
 const companyLimitStore = new Map();
 
-// Clean up old entries every hour
-setInterval(() => {
-    const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
+if (process.env.NODE_ENV !== 'test') {
+    // Clean up old entries every hour
+    setInterval(() => {
+        const now = Date.now();
+        const oneHour = 60 * 60 * 1000;
 
-    for (const [key, value] of userLimitStore.entries()) {
-        if (now - value.resetTime > oneHour) {
-            userLimitStore.delete(key);
+        for (const [key, value] of userLimitStore.entries()) {
+            if (now - value.resetTime > oneHour) {
+                userLimitStore.delete(key);
+            }
         }
-    }
 
-    for (const [key, value] of companyLimitStore.entries()) {
-        if (now - value.resetTime > oneHour) {
-            companyLimitStore.delete(key);
+        for (const [key, value] of companyLimitStore.entries()) {
+            if (now - value.resetTime > oneHour) {
+                companyLimitStore.delete(key);
+            }
         }
-    }
-}, 60 * 60 * 1000); // Run every hour
+    }, 60 * 60 * 1000); // Run every hour
+}
 
 /**
  * User-based rate limiter middleware

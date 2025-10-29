@@ -3,6 +3,7 @@ const path = require('path');
 
 // Test database setup
 const testDbPath = './test_qbil_hub.db';
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
 beforeAll(async () => {
   // Set test environment BEFORE requiring database module
@@ -23,13 +24,15 @@ beforeAll(async () => {
       try {
         fs.unlinkSync(testDbPath);
       } catch (err2) {
-        console.warn('Could not delete test database, continuing anyway:', err2.message);
+        if (!isCI) {
+          console.warn('Could not delete test database, continuing anyway:', err2.message);
+        }
       }
     }
   }
   
   // Now require database module (after env vars are set)
-  const { execAsync } = require('../src/utils/database');
+  const { execAsync, query } = require('../src/utils/database');
   
   // Create test database schema
   const schemaPath = path.join(__dirname, '../src/scripts/schema.sql');
@@ -57,6 +60,18 @@ beforeAll(async () => {
       }
     }
   }
+
+  // Remove seed data that may interfere with tests
+  const seedBusinessIds = ['TCA001', 'TCB002', 'TCC003'];
+  await query(
+    `DELETE FROM users WHERE company_id IN (
+       SELECT id FROM companies WHERE business_id IN (?, ?, ?)
+     )`, seedBusinessIds
+  );
+  await query(
+    `DELETE FROM companies WHERE business_id IN (?, ?, ?)`,
+    seedBusinessIds
+  );
 }, 30000); // Increase timeout for slow systems
 
 afterAll(async () => {
@@ -65,14 +80,16 @@ afterAll(async () => {
   await close();
   
   // Wait a bit for the connection to fully close
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
   
   // Clean up test database
   if (fs.existsSync(testDbPath)) {
     try {
       fs.unlinkSync(testDbPath);
     } catch (err) {
-      console.warn('Could not delete test database:', err.message);
+      if (!isCI) {
+        console.warn('Could not delete test database:', err.message);
+      }
     }
   }
 }, 10000);
