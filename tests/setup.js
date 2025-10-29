@@ -1,9 +1,26 @@
 const fs = require('fs');
 const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 
 // Test database setup
-const testDbPath = './test_qbil_hub.db';
+const testDbPath = path.resolve(__dirname, '..', 'test_qbil_hub.db');
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+// Helper function to clean up WAL files
+const cleanupWalFiles = (dbPath) => {
+  const walPath = dbPath + '-wal';
+  const shmPath = dbPath + '-shm';
+  
+  [walPath, shmPath].forEach(filePath => {
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {
+        // Ignore errors
+      }
+    }
+  });
+};
 
 beforeAll(async () => {
   // Set test environment BEFORE requiring database module
@@ -14,7 +31,8 @@ beforeAll(async () => {
   process.env.RATE_LIMIT_WINDOW_MS = '999999999'; // Very long window
   process.env.RATE_LIMIT_MAX_REQUESTS = '999999'; // Very high limit
   
-  // Clean up any existing test database
+  // Clean up any existing test database and WAL files
+  cleanupWalFiles(testDbPath);
   if (fs.existsSync(testDbPath)) {
     try {
       fs.unlinkSync(testDbPath);
@@ -35,13 +53,18 @@ beforeAll(async () => {
   delete require.cache[require.resolve('../src/utils/database')];
   delete require.cache[require.resolve('../src/utils/logger')];
   
-  // Now require database module (after env vars are set and cache cleared)
-  const { execAsync } = require('../src/utils/database');
+  // Create database directly using sqlite3, not via our database module
+  // This ensures we have full control over initialization
+  const testDb = new sqlite3.Database(testDbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+    if (err) {
+      throw new Error(`Failed to create test database: ${err.message}`);
+    }
+  });
   
-  // Wait a moment for database file to be created
-  await new Promise(resolve => setTimeout(resolve, isCI ? 1000 : 100));
+  // Wait for database to be fully created
+  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
   
-  // Create test database schema
+  // Read and execute schema
   const schemaPath = path.join(__dirname, '../src/scripts/schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
   
@@ -50,21 +73,30 @@ beforeAll(async () => {
     .split(';')
     .map(stmt => stmt.trim())
     .filter(stmt => stmt.length > 0 && /CREATE/i.test(stmt)); // Only CREATE statements, no INSERT
-    
+  
+  // Execute schema using direct sqlite3
   for (const statement of statements) {
-    try {
-      await execAsync(statement + ';');
-    } catch (err) {
-      // Ignore errors for existing objects
-      if (!err.message.includes('already exists')) {
-        console.warn('Schema statement failed:', err.message);
-      }
-    }
+    await new Promise((resolve, reject) => {
+      testDb.exec(statement + ';', (err) => {
+        if (err && !err.message.includes('already exists')) {
+          console.warn('Schema statement failed:', err.message);
+        }
+        resolve();
+      });
+    });
   }
   
-  // Wait for schema to be fully applied
-  await new Promise(resolve => setTimeout(resolve, isCI ? 1000 : 100));
-}, 30000); // Increase timeout for slow systems
+  // Close the direct connection
+  await new Promise(resolve => {
+    testDb.close(() => resolve());
+  });
+  
+  // Wait for database to be fully ready
+  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
+  
+  // Now require the database module - it will connect to the already-created database
+  require('../src/utils/database');
+}, 60000); // Increase timeout for slow systems
 
 afterAll(async () => {
   try {
@@ -74,6 +106,9 @@ afterAll(async () => {
     
     // Wait a bit for the connection to fully close
     await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
+    
+    // Clean up WAL files first
+    cleanupWalFiles(testDbPath);
     
     // Clean up test database
     if (fs.existsSync(testDbPath)) {

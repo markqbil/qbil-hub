@@ -13,19 +13,26 @@ const db = new sqlite3.Database(dbPath, (err) => {
         logger.info('Connected to SQLite database', { dbPath });
         
         // Enable WAL mode for better concurrent performance
-        db.run('PRAGMA journal_mode = WAL', (err) => {
-            if (err) {
-                logger.warn('Failed to enable WAL mode', { error: err.message });
-            } else {
-                logger.info('SQLite WAL mode enabled');
-            }
-        });
+        // But only if not in test mode (WAL can cause issues with test cleanup)
+        if (process.env.NODE_ENV !== 'test') {
+            db.run('PRAGMA journal_mode = WAL', (err) => {
+                if (err) {
+                    logger.warn('Failed to enable WAL mode', { error: err.message });
+                } else {
+                    logger.info('SQLite WAL mode enabled');
+                }
+            });
+        }
         
         // Optimize SQLite settings for performance
         db.run('PRAGMA synchronous = NORMAL'); // Faster, still safe with WAL
         db.run('PRAGMA cache_size = -64000'); // 64MB cache
         db.run('PRAGMA temp_store = MEMORY'); // Use memory for temp tables
-        db.run('PRAGMA mmap_size = 30000000000'); // 30GB memory mapping
+        
+        if (process.env.NODE_ENV !== 'test') {
+            db.run('PRAGMA mmap_size = 30000000000'); // 30GB memory mapping
+        }
+        
         db.run('PRAGMA page_size = 4096'); // Optimal page size
         
         logger.info('SQLite performance optimizations applied');
