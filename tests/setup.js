@@ -55,14 +55,34 @@ beforeAll(async () => {
   
   // Create database directly using sqlite3, not via our database module
   // This ensures we have full control over initialization
-  const testDb = new sqlite3.Database(testDbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-    if (err) {
-      throw new Error(`Failed to create test database: ${err.message}`);
+  let testDb;
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      testDb = await new Promise((resolve, reject) => {
+        const db = new sqlite3.Database(testDbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(db);
+          }
+        });
+      });
+      break; // Success, exit retry loop
+    } catch (err) {
+      retries--;
+      if (retries === 0) {
+        throw new Error(`Failed to create test database after 3 attempts: ${err.message}`);
+      }
+      console.log(`Database creation failed, retrying... (${3 - retries}/3)`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  });
+  }
   
-  // Wait for database to be fully created
-  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
+  console.log('Test database connection established');
+  
+  // Wait for database to be fully created and ready
+  await new Promise(resolve => setTimeout(resolve, isCI ? 3000 : 500));
   
   // Read and execute schema
   const schemaPath = path.join(__dirname, '../src/scripts/schema.sql');
@@ -72,31 +92,87 @@ beforeAll(async () => {
   const statements = schema
     .split(';')
     .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0 && /CREATE/i.test(stmt)); // Only CREATE statements, no INSERT
+    .filter(stmt => {
+      if (stmt.length === 0) return false;
+      // Only include CREATE statements (tables, indexes, triggers)
+      return /CREATE\s+(TABLE|INDEX|TRIGGER)/i.test(stmt);
+    });
+  
+  console.log(`Executing ${statements.length} CREATE statements...`);
   
   // Execute schema using direct sqlite3
-  for (const statement of statements) {
+  for (let i = 0; i < statements.length; i++) {
+    const statement = statements[i];
     await new Promise((resolve, reject) => {
       testDb.exec(statement + ';', (err) => {
-        if (err && !err.message.includes('already exists')) {
-          console.warn('Schema statement failed:', err.message);
+        if (err) {
+          if (err.message.includes('already exists')) {
+            resolve(); // Skip if already exists
+          } else {
+            console.error(`Failed to execute statement ${i + 1}:`, statement.substring(0, 100));
+            console.error('Error:', err.message);
+            reject(err);
+          }
+        } else {
+          // Log table creation
+          const match = statement.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/i);
+          if (match) {
+            console.log(`✓ Created table: ${match[1]}`);
+          }
+          resolve();
         }
-        resolve();
       });
     });
   }
   
-  // Close the direct connection
-  await new Promise(resolve => {
-    testDb.close(() => resolve());
+  console.log('Database schema created successfully');
+  
+  // Verify that tables were created
+  await new Promise((resolve, reject) => {
+    testDb.all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", [], (err, tables) => {
+      if (err) {
+        reject(err);
+      } else {
+        const tableNames = tables.map(t => t.name);
+        console.log('Tables created:', tableNames.join(', '));
+        
+        // Verify essential tables exist
+        const requiredTables = ['companies', 'users', 'connections', 'documents'];
+        const missingTables = requiredTables.filter(t => !tableNames.includes(t));
+        
+        if (missingTables.length > 0) {
+          reject(new Error(`Missing required tables: ${missingTables.join(', ')}`));
+        } else {
+          console.log('✓ All required tables verified');
+          resolve();
+        }
+      }
+    });
   });
   
-  // Wait for database to be fully ready
-  await new Promise(resolve => setTimeout(resolve, isCI ? 2000 : 500));
+  // Close the direct connection
+  await new Promise((resolve, reject) => {
+    testDb.close((err) => {
+      if (err) {
+        console.warn('Warning closing database:', err.message);
+      }
+      resolve();
+    });
+  });
+  
+  console.log('Direct database connection closed');
+  
+  // Wait for database to be fully ready - longer wait in CI environments
+  await new Promise(resolve => setTimeout(resolve, isCI ? 3000 : 500));
   
   // Now require the database module - it will connect to the already-created database
-  require('../src/utils/database');
-}, 60000); // Increase timeout for slow systems
+  const db = require('../src/utils/database');
+  
+  // Wait a bit more for the connection to be established
+  await new Promise(resolve => setTimeout(resolve, isCI ? 1000 : 200));
+  
+  console.log('Test database setup complete ✓');
+}, 90000); // Increase timeout for CI environments
 
 afterAll(async () => {
   try {
